@@ -189,7 +189,7 @@ func (x *taskState) setTimerAt(t time.Time) {
 	}
 	stopTimer(&x.timer)
 	x.next = t
-	x.timer = startTimer(t.Sub(time.Now()))
+	x.timer = startTimer(time.Until(t))
 }
 
 func (x *taskState) rescheduleSooner(t time.Time) {
@@ -209,7 +209,7 @@ func (x *taskState) rescheduleSooner(t time.Time) {
 		return
 	}
 
-	x.timer = startTimer(t.Sub(time.Now()))
+	x.timer = startTimer(time.Until(t))
 }
 
 func (x *taskState) stopTimer() (ready bool) {
