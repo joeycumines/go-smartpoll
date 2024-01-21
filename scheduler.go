@@ -30,19 +30,9 @@ type (
 	//
 	// See also the package docs for [smartpoll].
 	Scheduler struct {
-		running atomic.Int32
 
 		// tasks are all configured Task values + schedule state, identified by an arbitrary key
 		tasks map[any]*taskState
-
-		// hooks are the Hook.call methods for each custom hook
-		hooks []func(ctx context.Context, internal *Internal, value reflect.Value, ok bool) error
-
-		// cases are hooks + internal cases + task cases, see also initCases, numInternalCases
-		cases []reflect.SelectCase
-
-		// taskIndices maps the (relative) index of a task case to the task key
-		taskIndices []any
 
 		// taskLockCh receives responses from the first stage of a Task.
 		// If the value is nil, the main loop blocks on the taskUnlockCh.
@@ -55,8 +45,18 @@ type (
 		// call which is blocking on tasks from a previous call.
 		taskCompleteCh chan struct{}
 
+		// hooks are the Hook.call methods for each custom hook
+		hooks []func(ctx context.Context, internal *Internal, value reflect.Value, ok bool) error
+
+		// cases are hooks + internal cases + task cases, see also initCases, numInternalCases
+		cases []reflect.SelectCase
+
+		// taskIndices maps the (relative) index of a task case to the task key
+		taskIndices []any
+
 		// runHooks are called on each Scheduler.Run, just prior to starting the main loop.
 		runHooks []RunHook
+		running  atomic.Int32
 	}
 )
 
