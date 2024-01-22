@@ -154,7 +154,7 @@ func (x *Scheduler) Run(ctx context.Context) error {
 					return err
 				}
 
-			case noHookSentinel:
+			case errNoHook:
 				// nothing to do - just used to skip unlock
 
 			default:

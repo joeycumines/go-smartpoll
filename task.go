@@ -54,8 +54,8 @@ var (
 	// identifies tasks which are ready to be executed
 	readySentinel = new(time.Timer)
 
-	// noHookSentinel is used to skip the second stage of a Task, see taskState.run and Scheduler.Run
-	noHookSentinel = errors.New(`smartpoll: no hook`)
+	// errNoHook is used to skip the second stage of a Task, see taskState.run and Scheduler.Run
+	errNoHook = errors.New(`smartpoll: no hook`)
 )
 
 func (x Task) call(ctx context.Context) (TaskHook, error) {
@@ -101,7 +101,7 @@ func (x *taskState) run(ctx context.Context, scheduler *Scheduler, internal *Int
 
 	// special case to facilitate skipping hook (and the synchronisation) if it is nil
 	if err == nil && hook == nil {
-		err = noHookSentinel
+		err = errNoHook
 		// this special case does not exit the main loop, therefore it must
 		// mark as not running prior to returning, lest it deadlock (see below)
 		clearRunning()
