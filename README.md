@@ -41,34 +41,33 @@ Each time any of the input data changes, the aggregate will be regenerated, and 
 ```go
 // TODO: Actually implement this, as a runnable example.
 // Assume state in the local scope, without explicit synchronisation, except where noted.
-
 weatherAPI1Task := func(ctx context.Context) (smartpoll.TaskHook, error) {
 	// running in a separate goroutine...
 	// assume backoff / retries baked into retrieving the result
 	result, err := // ...
 	if err != nil {
 		// fatal error, will terminate the control loop
-        return nil, err
-    }
+		return nil, err
+	}
 
 	return func(ctx context.Context, internal *Internal) error {
 		// synchronised with the control loop...
 
 		// reschedule as desired
-		internal.ScheduleSooner("weatherAPI1", time.Second * 10)
+		internal.ScheduleSooner("weatherAPI1", time.Second*10)
 
 		if !result.Equal(lastResult) {
 			// schedule a publish task, if not already scheduled
 			internal.Schedule("publish", 0)
-        }
+		}
 
 		lastResult = result
 		return nil
-    }, nil
+	}, nil
 }
 
 publishTask := func(ctx context.Context) (smartpoll.TaskHook, error) {
-    // we are running in a separate goroutine - this might use a mutex, atomic, or some other mechanism to synchronise
+	// we are running in a separate goroutine - this might use a mutex, atomic, or some other mechanism to synchronise
 	allDataSnapshot := getAllDataSynchronised()
 
 	// this could also be made available to the other tasks, e.g. updated to a variable in the parent scope, in a TaskHook
@@ -76,7 +75,7 @@ publishTask := func(ctx context.Context) (smartpoll.TaskHook, error) {
 
 	// ... perform IO etc, to publish the aggregate result
 
-    return nil, nil // TaskHook is omitted - nothing to synchronise with the control loop
+	return nil, nil // TaskHook is omitted - nothing to synchronise with the control loop
 }
 
 scheduler, _ := smartpoll.New(
@@ -85,17 +84,17 @@ scheduler, _ := smartpoll.New(
 		internal.Schedule("weatherAPI1", 0)
 		internal.Schedule("weatherAPI2", 0)
 		internal.Schedule("weatherAPI3", 0)
-    }),
-    smartpoll.WithTask("weatherAPI1", weatherAPI1Task),
-    smartpoll.WithTask("weatherAPI2", weatherAPI2Task),
-    smartpoll.WithTask("weatherAPI3", weatherAPI3Task),
-	smartpoll.WithTask("publish", publishTask), // scheduled by the
+		return nil
+	}),
+	smartpoll.WithTask("weatherAPI1", weatherAPI1Task),
+	smartpoll.WithTask("weatherAPI2", weatherAPI2Task),
+	smartpoll.WithTask("weatherAPI3", weatherAPI3Task),
+	// scheduled by each weather api task, as necessary (singleflight)
+	smartpoll.WithTask("publish", publishTask),
 )
 
 scheduler.Run(context.Background())
 ```
-
-In each task, you can adjust the schedule based on the rate limits of each API.
 
 ## Litmus test
 
