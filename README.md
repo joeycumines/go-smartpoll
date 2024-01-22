@@ -8,17 +8,24 @@ See the [API docs](https://pkg.go.dev/github.com/joeycumines/go-smartpoll).
 
 ## Features
 
-- **Synchronized Polling**: Smartpoll allows you to manage multiple data points in a synchronized manner. This is
-  particularly useful when you need to aggregate information from multiple sources.
-
 - **Dynamic Scheduling**: The package provides a dynamic scheduling mechanism. This means that you can adjust the
-  schedule of polling operations on the fly, based on the needs of your application.
+  schedule of polling operations on the fly, based on the needs of your application. See
+  [Internal](https://pkg.go.dev/github.com/joeycumines/go-smartpoll#Internal).
 
-- **Reactive**: Smartpoll is reactive. It responds to changes in the state of your application and adjusts the polling
-  operations accordingly.
+- **Sane Control Loop**: Smartpoll makes it easy to synchronise control-flow decisions, including handling of results.
+  See [TaskHook](https://pkg.go.dev/github.com/joeycumines/go-smartpoll#TaskHook).
+
+- **Reactive**: Smartpoll is reactive. It allows implementations to respond to changes in the state of your application,
+  and adjust scheduling accordingly. See [Hook](https://pkg.go.dev/github.com/joeycumines/go-smartpoll#Hook).
 
 - **Easy to Implement**: The package is designed to make it easy to implement a control loop. This reduces the
   complexity of your code and makes it easier to maintain.
+
+- **Error Handling**: Smartpoll provides robust error handling mechanisms for handling fatal errors from tasks or any
+  logic running within the control loop.
+
+- **Restart Capability**: Smartpoll allows for the control loop to be torn down and later re-run, in response to
+  arbitrary events, or context cancel.
 
 ## Examples
 
