@@ -30,7 +30,6 @@ type (
 	//
 	// See also the package docs for [smartpoll].
 	Scheduler struct {
-
 		// tasks are all configured Task values + schedule state, identified by an arbitrary key
 		tasks map[any]*taskState
 
@@ -56,7 +55,9 @@ type (
 
 		// runHooks are called on each Scheduler.Run, just prior to starting the main loop.
 		runHooks []RunHook
-		running  atomic.Int32
+
+		// running is used to trigger a panic if Run is called concurrently
+		running atomic.Int32
 	}
 )
 
@@ -143,14 +144,22 @@ func (x *Scheduler) Run(ctx context.Context) error {
 			return ctx.Err()
 
 		case i == x.absInternalCaseIndex(taskSyncInternalCaseIndex):
-			if err := v.Interface(); err != nil {
-				// WARNING: type assertion must be after the nil check
+			// can't assert `error` yet (might be nil interface{})
+			err := v.Interface()
+			switch err {
+			case nil:
+				// WARNING: This can't select on context, or it may cause a
+				// data race (e.g. in the deferred timer stops).
+				if err := <-x.taskUnlockCh; err != nil {
+					return err
+				}
+
+			case noHookSentinel:
+				// nothing to do - just used to skip unlock
+
+			default:
+				// type assertion must be after the nil check
 				return err.(error)
-			}
-			// WARNING: This can't select on context, or it may cause a data
-			// race (e.g. in the deferred timer stops).
-			if err := <-x.taskUnlockCh; err != nil {
-				return err
 			}
 
 		default:

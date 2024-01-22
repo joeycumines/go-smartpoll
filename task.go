@@ -9,7 +9,7 @@ import (
 
 type (
 	// Task performs an arbitrary operation in the background, returning either
-	// a fatal error, or a TaskHook.
+	// a fatal error, or a TaskHook, or neither (`return nil, nil`).
 	// The context provided to Task will be cancelled after this function (not
 	// the TaskHook) returns, or when the Scheduler.Run context is canceled.
 	//
@@ -53,6 +53,9 @@ var (
 
 	// identifies tasks which are ready to be executed
 	readySentinel = new(time.Timer)
+
+	// noHookSentinel is used to skip the second stage of a Task, see taskState.run and Scheduler.Run
+	noHookSentinel = errors.New(`smartpoll: no hook`)
 )
 
 func (x Task) call(ctx context.Context) (TaskHook, error) {
@@ -96,6 +99,14 @@ func (x *taskState) run(ctx context.Context, scheduler *Scheduler, internal *Int
 	// run the (background) part of the task
 	hook, err := x.task.call(ctx)
 
+	// special case to facilitate skipping hook (and the synchronisation) if it is nil
+	if err == nil && hook == nil {
+		err = noHookSentinel
+		// this special case does not exit the main loop, therefore it must
+		// mark as not running prior to returning, lest it deadlock (see below)
+		clearRunning()
+	}
+
 	// block the main loop / notify it of any error
 	select {
 	case <-ctx.Done():
@@ -104,7 +115,7 @@ func (x *taskState) run(ctx context.Context, scheduler *Scheduler, internal *Int
 	case scheduler.taskLockCh <- err:
 	}
 
-	// if we sent an error, it will result in a fatal error (we don't need to unlock)
+	// if we sent an error, we don't need to unlock (also it'd deadlock)
 	if err != nil {
 		success = true
 		return

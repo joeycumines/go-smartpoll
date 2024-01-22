@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -505,5 +506,120 @@ func TestScheduler_Run_multipleHooksHookError(t *testing.T) {
 
 	if err := <-out; err != ee {
 		t.Error(err)
+	}
+}
+
+func TestScheduler_Run_taskWithoutHook(t *testing.T) {
+	defer checkNumGoroutines(time.Second * 3)(t)
+
+	in := make(chan struct{})
+	schedule := make(chan struct{})
+	sch, err := New(
+		WithTask(nil, func(ctx context.Context) (TaskHook, error) {
+			in <- struct{}{}
+			return nil, nil
+		}),
+		WithHook(schedule, func(ctx context.Context, internal *Internal, _ struct{}, ok bool) error {
+			if !ok {
+				return context.Canceled
+			}
+			internal.Schedule(nil, 0)
+			return nil
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if err := sch.Run(context.Background()); err != context.Canceled {
+			t.Error(err)
+		}
+	}()
+
+	// deliberately run a bunch of times - regression on a deadlock bug
+	for i := 0; i < 50; i++ {
+		schedule <- struct{}{}
+		<-in
+	}
+
+	close(schedule)
+	<-done
+}
+
+func TestScheduler_Run_taskRuntimeGoexit(t *testing.T) {
+	defer checkNumGoroutines(time.Second * 3)(t)
+
+	schCh := make(chan func(internal *Internal))
+	taskIn := make(chan struct{})
+	taskOut := make(chan struct{})
+	taskHookIn := make(chan struct{})
+	taskHookOut := make(chan struct{})
+	sch, err := New(
+		WithHook(schCh, func(ctx context.Context, internal *Internal, f func(internal *Internal), _ bool) error {
+			f(internal)
+			return nil
+		}),
+		WithTask(`Task`, func(ctx context.Context) (TaskHook, error) {
+			taskIn <- struct{}{}
+			<-taskOut
+			runtime.Goexit()
+			t.Error(`should not reach here`)
+			panic(`should not reach here`)
+		}),
+		WithTask(`TaskHook`, func(ctx context.Context) (TaskHook, error) {
+			return func(ctx context.Context, internal *Internal) error {
+				taskHookIn <- struct{}{}
+				<-taskHookOut
+				runtime.Goexit()
+				t.Error(`should not reach here`)
+				panic(`should not reach here`)
+			}, nil
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out := make(chan error)
+	run := func() {
+		out <- sch.Run(context.Background())
+	}
+
+	go run()
+	schCh <- func(internal *Internal) {
+		internal.Schedule(`Task`, 0)
+	}
+	<-taskIn
+	taskOut <- struct{}{}
+	if err := <-out; err != ErrPanicInTask {
+		t.Errorf(`unexpected error: %v`, err)
+	}
+
+	go run()
+	schCh <- func(internal *Internal) {
+		internal.Schedule(`TaskHook`, 0)
+	}
+	<-taskHookIn
+	taskHookOut <- struct{}{}
+	if err := <-out; err != ErrPanicInTask {
+		t.Errorf(`unexpected error: %v`, err)
+	}
+
+	// context cancel test for Task path
+	go run()
+	schCh <- func(internal *Internal) {
+		internal.Schedule(`Task`, 0)
+		internal.Schedule(`TaskHook`, 0)
+	}
+	<-taskIn
+	<-taskHookIn
+	taskOut <- struct{}{}
+	time.Sleep(time.Millisecond * 30)
+	taskHookOut <- struct{}{}
+	if err := <-out; err != ErrPanicInTask {
+		t.Errorf(`unexpected error: %v`, err)
 	}
 }

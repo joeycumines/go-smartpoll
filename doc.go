@@ -1,5 +1,6 @@
 // Package smartpoll offers dynamic, reactive scheduling for synchronized
-// polling of multiple data points.
+// polling of multiple data points. See the [README] for the rationale, use
+// cases, and examples.
 //
 // The purpose of this implementation is to make it as easy as possible to
 // implement a "control loop", which directly manages the scheduling of polling
@@ -12,4 +13,6 @@
 // performed in its own goroutine, while the second stage is synchronized with
 // the main loop. Channels for each custom Hook are selected alongside the
 // logic for scheduling and handling the results of each Task.
+//
+// [README]: https://github.com/joeycumines/go-smartpoll/blob/main/README.md
 package smartpoll
