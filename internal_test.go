@@ -272,13 +272,13 @@ func TestInternal_ScheduleAtSooner(t *testing.T) {
 	if scheduler.tasks["task1"].timer == existingTimer || scheduler.tasks["task1"].timer == nil {
 		t.Fatal()
 	}
-	if existingTimer.Stop() {
-		t.Fatal()
-	}
 	select {
 	case <-existingTimer.C:
 		t.Fatal()
 	default:
+	}
+	if existingTimer.Stop() {
+		t.Fatal()
 	}
 	if !scheduler.tasks["task1"].next.Equal(soonerTime.Add(-1)) {
 		t.Fatal()

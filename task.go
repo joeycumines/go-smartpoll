@@ -168,12 +168,7 @@ func (x *taskState) startIfPossible(ctx context.Context, scheduler *Scheduler, i
 func (x *taskState) setTimer(d time.Duration) {
 	if x.timer != nil && x.timer != readySentinel {
 		// stop and drain (we consume any ready tick)
-		if !x.timer.Stop() {
-			select {
-			case <-x.timer.C:
-			default:
-			}
-		}
+		stopAndDrainTimer(x.timer)
 	}
 
 	// we update both next and timer, unless both the current and desired state is ready
@@ -246,12 +241,8 @@ func stopTimer(p **time.Timer) (ready bool) {
 		return true
 	}
 
-	if !v.Stop() {
-		select {
-		case <-v.C:
-			ready = true
-		default:
-		}
+	if !stopAndDrainTimer(v) {
+		ready = true
 	}
 
 	if ready {
