@@ -623,3 +623,69 @@ func TestScheduler_Run_taskRuntimeGoexit(t *testing.T) {
 		t.Errorf(`unexpected error: %v`, err)
 	}
 }
+
+func TestScheduler_Run_noTasks(t *testing.T) {
+	defer func() {
+		if r := recover(); r != `smartpoll: scheduler must be initialized with New` {
+			t.Error(r)
+		}
+	}()
+	_ = (&Scheduler{}).Run(context.Background())
+}
+
+func TestScheduler_Run_concurrentRun(t *testing.T) {
+	sch, err := New(
+		WithTask(nil, func(ctx context.Context) (TaskHook, error) {
+			return func(ctx context.Context, internal *Internal) error { return nil }, nil
+		}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	out := make(chan struct{})
+	go func() {
+		defer close(out)
+		_ = sch.Run(ctx)
+	}()
+	for i := 0; ; i++ {
+		if i >= 5 {
+			t.Fatal(`expected to mark running`)
+		}
+		time.Sleep(time.Millisecond * 50)
+		if sch.running.Load() == 1 {
+			break
+		}
+	}
+	select {
+	case <-out:
+		t.Fatal(`expected to block`)
+	default:
+	}
+	if v := sch.running.Load(); v != 1 {
+		t.Fatal(v)
+	}
+	func() {
+		defer func() {
+			if v := recover(); v != `smartpoll: scheduler already running` {
+				t.Fatal(v)
+			}
+		}()
+		_ = sch.Run(context.Background())
+	}()
+	time.Sleep(time.Millisecond * 30)
+	if v := sch.running.Load(); v != 1 {
+		t.Fatal(v)
+	}
+	select {
+	case <-out:
+		t.Fatal(`expected to block`)
+	default:
+	}
+	cancel()
+	<-out
+	if v := sch.running.Load(); v != 0 {
+		t.Fatal(v)
+	}
+}

@@ -309,3 +309,87 @@ func TestInternal_ScheduleSooner_InvalidDuration(t *testing.T) {
 	}()
 	internal.ScheduleSooner("task1", invalidDuration)
 }
+
+func TestInternal_ScheduleAtSooner_zeroValue(t *testing.T) {
+	scheduler := &Scheduler{
+		tasks: map[any]*taskState{
+			"task1": {},
+		},
+	}
+	internal := &Internal{
+		scheduler: scheduler,
+	}
+	defer func() {
+		if r := recover(); r != `smartpoll: cannot schedule at sooner of zero time` {
+			t.Error(r)
+		}
+	}()
+	internal.ScheduleAtSooner("task1", time.Time{})
+}
+
+func TestInternal_ScheduleAtSooner_alreadyReady(t *testing.T) {
+	scheduler := &Scheduler{
+		tasks: map[any]*taskState{
+			"task1": {
+				timer: readySentinel,
+			},
+		},
+	}
+	internal := &Internal{
+		scheduler: scheduler,
+	}
+	internal.ScheduleAtSooner("task1", time.Unix(0, 0))
+	if v := scheduler.tasks["task1"].timer; v != readySentinel {
+		t.Error(v)
+	}
+	if v := scheduler.tasks["task1"].next; !v.Equal(time.Unix(0, 0)) {
+		t.Error(v)
+	}
+}
+
+func TestInternal_ScheduleAtSooner_alreadyReadyNotSentinel(t *testing.T) {
+	lower := time.Now().Add(time.Minute)
+	upper := lower.Add(1)
+	timer := time.NewTimer(1)
+	time.Sleep(time.Millisecond * 30)
+	scheduler := &Scheduler{
+		tasks: map[any]*taskState{
+			"task1": {
+				next:  upper,
+				timer: timer,
+			},
+		},
+	}
+	internal := &Internal{
+		scheduler: scheduler,
+	}
+	internal.ScheduleAtSooner("task1", lower)
+	// N.B. will get swapped out to be readySentinel while checking if ready
+	if v := scheduler.tasks["task1"].timer; v != readySentinel {
+		t.Error(v)
+	}
+	if v := scheduler.tasks["task1"].next; !v.Equal(lower) || v.Equal(upper) {
+		t.Error(v)
+	}
+}
+
+func TestInternal_ScheduleAt_clearIfZeroValue(t *testing.T) {
+	scheduler := &Scheduler{
+		tasks: map[any]*taskState{
+			"task1": {
+				next:  time.Now(),
+				timer: readySentinel,
+			},
+		},
+	}
+	internal := &Internal{
+		scheduler: scheduler,
+	}
+	internal.ScheduleAt("task1", time.Time{})
+	if v := scheduler.tasks["task1"].timer; v != nil {
+		t.Error(v)
+	}
+	if v := scheduler.tasks["task1"].next; v != (time.Time{}) {
+		t.Error(v)
+	}
+}
