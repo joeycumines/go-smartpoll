@@ -38,8 +38,6 @@ func TestScheduler_Run_runIndependentTasks(t *testing.T) {
 	}
 
 	for taskName, numRuns := range taskRuns {
-		taskName := taskName
-		numRuns := numRuns
 		options = append(options, WithTask(taskName, func(ctx context.Context) (TaskHook, error) {
 			time.Sleep(time.Millisecond * 3)
 			return func(ctx context.Context, internal *Internal) error {
@@ -141,8 +139,6 @@ func TestScheduler_Run_runWithHook(t *testing.T) {
 	}
 
 	for taskName, numRuns := range taskRuns {
-		taskName := taskName
-		numRuns := numRuns
 		options = append(options, WithTask(taskName, func(ctx context.Context) (TaskHook, error) {
 			if *(runCounts[taskName]) == 0 {
 				startedAndAllTasksRunning.Done()
@@ -275,7 +271,7 @@ func TestScheduler_Run_multipleRuns(t *testing.T) {
 		}
 	}
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		firstRun()
 		secondRun()
 	}
@@ -540,7 +536,7 @@ func TestScheduler_Run_taskWithoutHook(t *testing.T) {
 	}()
 
 	// deliberately run a bunch of times - regression on a deadlock bug
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		schedule <- struct{}{}
 		<-in
 	}

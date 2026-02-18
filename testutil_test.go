@@ -44,7 +44,7 @@ func waitNumGoroutines(maxDur time.Duration, fn func(n int) bool) (n int) {
 	return
 }
 
-func testingErrorfOrPanic(t *testing.T, format string, values ...interface{}) {
+func testingErrorfOrPanic(t *testing.T, format string, values ...any) {
 	if t == nil {
 		panic(fmt.Errorf(format, values...))
 	}
